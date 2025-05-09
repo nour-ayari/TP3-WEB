@@ -10,25 +10,28 @@ import { Cv } from './cv/cv.entity';
 import { User } from './user/user.entity';
 import { UserMiddleware } from 'common/middleware/user.middleware';
 import { CvHistory } from './cv-history/entities/cv-history.entity/cv-history.entity';
+import { MessagingModule } from './Messaging/messaging.module';
 
 @Module({
-  imports: [  TypeOrmModule.forRoot({
-      type: 'mysql',
-      database: 'tp3web',
-      entities: [Cv,User,CvHistory],
-      synchronize: true,
-      username:'root',
-      password:'root'
-    }),
-    EventEmitterModule.forRoot(),
+  imports: [TypeOrmModule.forRoot({
+    type: 'mysql',
+    database: 'tp3web',
+    entities: [Cv, User, CvHistory],
+    synchronize: true,
+    username: 'root',
+    password: 'root',
+  }),
+  EventEmitterModule.forRoot(),
     CvModule,
     UserModule,
-    CvHistoryModule],
+    CvHistoryModule,
+    MessagingModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {
-    configure(consumer: MiddlewareConsumer) {
+  configure(consumer: MiddlewareConsumer) {
     consumer.apply(UserMiddleware).forRoutes('*');
   }
 }

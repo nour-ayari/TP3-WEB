@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Chat Room Joiner</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .container {
+        max-width: 600px;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+      }
+      input[type='text'] {
+        padding: 10px;
+        margin-right: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      button {
+        padding: 10px 15px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      #messages {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #eee;
+        height: 200px;
+        overflow-y: auto;
+        background-color: #f9f9f9;
+      }
+      .message {
+        padding: 5px 0;
+        border-bottom: 1px dotted #eee;
+      }
+      .message:last-child {
+        border-bottom: none;
+      }
+      .status {
+        font-style: italic;
+        color: #555;
+      }
+      .error {
+        color: red;
+        font-weight: bold;
+      }
+      .typing-indicator {
+        font-style: italic;
+        color: #777;
+        font-size: 0.9em;
+      }
+      #messageInputContainer {
+        margin-top: 15px;
+        display: flex;
+      }
+      #messageInput {
+        flex-grow: 1;
+      }
+      .whisper {
+        font-style: italic;
+        color: #999;
+        opacity: 1;
+        transition: opacity 2s ease-out 4s;
+      }
+      .whisper.faded {
+        opacity: 0;
+      }
+      #whisperControls {
+        margin-top: 5px;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>WebSocket Room Joiner & Chat</h2>
+
+      <div>
+        <label for="userId">User ID:</label>
+        <input type="text" id="userId" placeholder="Enter your User ID" />
+        <button id="connectButton">Connect</button>
+      </div>
+      <p id="connectionStatus" class="status">Status: Not Connected</p>
+
+      <hr />
+
+      <div id="roomSection" style="display: none">
+        <div>
+          <label for="roomName">Room Name:</label>
+          <input type="text" id="roomName" placeholder="Enter room name" />
+          <button id="joinRoomButton">Join Room</button>
+        </div>
+        <p id="currentRoomStatus" class="status">Not in any room.</p>
+
+        <div id="whisperControls" style="display: none">
+          <input type="checkbox" id="whisperModeCheckbox" />
+          <label for="whisperModeCheckbox">Send as Whisper (fades away)</label>
+        </div>
+
+        <div id="messageInputContainer" style="display: none">
+          <input
+            type="text"
+            id="messageInput"
+            placeholder="Type your message..."
+          />
+          <button id="sendMessageButton">Send</button>
+        </div>
+        <p id="typingIndicator" class="typing-indicator"></p>
+      </div>
+
+      <div id="messages">
+        <p class="status">Messages will appear here...</p>
+      </div>
+    </div>
+
+    <script>
+      let socket;
+      let currentRoom = null;
+      let typingTimeout = null;
+      const userIdInput = document.getElementById('userId');
+      const connectButton = document.getElementById('connectButton');
+      const connectionStatus = document.getElementById('connectionStatus');
+
+      const roomSection = document.getElementById('roomSection');
+      const roomNameInput = document.getElementById('roomName');
+      const joinRoomButton = document.getElementById('joinRoomButton');
+      const currentRoomStatus = document.getElementById('currentRoomStatus');
+
+      const messageInputContainer = document.getElementById(
+        'messageInputContainer',
+      );
+      const messageInput = document.getElementById('messageInput');
+      const sendMessageButton = document.getElementById('sendMessageButton');
+      const typingIndicator = document.getElementById('typingIndicator');
+      const whisperControls = document.getElementById('whisperControls');
+      const whisperModeCheckbox = document.getElementById(
+        'whisperModeCheckbox',
+      );
+
+      const messagesDiv = document.getElementById('messages');
+
+      function addMessage(text, type = 'info', isWhisper = false) {
+        const messageElement = document.createElement('p');
+        messageElement.textContent = text;
+        messageElement.classList.add('message');
+        if (type === 'error') {
+          messageElement.classList.add('error');
+        } else if (type === 'status') {
+          messageElement.classList.add('status');
+        }
+
+        if (isWhisper) {
+          messageElement.classList.add('whisper');
+          // The CSS transition handles the initial delay and fade.
+          // This JS timeout is to remove the element after it has faded.
+          setTimeout(() => {
+            messageElement.classList.add('faded'); // Start fade via CSS
+            setTimeout(() => {
+              if (messageElement.parentNode) {
+                messageElement.parentNode.removeChild(messageElement);
+              }
+            }, 2000);
+          }, 0);
+        }
+
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to bottom
+      }
+
+      connectButton.addEventListener('click', () => {
+        const userId = userIdInput.value.trim();
+        if (!userId) {
+          addMessage('Please enter a User ID.', 'error');
+          return;
+        }
+
+        if (socket && socket.connected) {
+          addMessage(
+            'Already connected. Disconnect first if you want to change User ID.',
+            'status',
+          );
+          return;
+        }
+
+        // Replace with your NestJS server URL if different
+        socket = io('http://localhost:3000', {
+          query: {
+            userId: userId,
+          },
+        });
+
+        connectionStatus.textContent = 'Status: Connecting...';
+        addMessage(`Attempting to connect as User ID: ${userId}`, 'status');
+
+        socket.on('connect', () => {
+          connectionStatus.textContent = `Status: Connected (Socket ID: ${socket.id}, User ID: ${userId})`;
+          addMessage(
+            `Successfully connected to server as User ID: ${userId}. Socket ID: ${socket.id}`,
+            'status',
+          );
+          roomSection.style.display = 'block';
+          userIdInput.disabled = true;
+          connectButton.textContent = 'Disconnect';
+          connectButton.onclick = disconnect; // Change button action
+        });
+
+        socket.on('connection_success', (data) => {
+          addMessage(
+            `Connection successful event: ClientID ${data.clientId}, UserID ${data.userId}`,
+            'status',
+          );
+        });
+
+        socket.on('error', (errorMessage) => {
+          connectionStatus.textContent = 'Status: Connection Error';
+          addMessage(`Connection Error: ${errorMessage}`, 'error');
+          if (socket) socket.disconnect();
+        });
+
+        socket.on('disconnect', (reason) => {
+          connectionStatus.textContent = 'Status: Disconnected';
+          addMessage(`Disconnected from server: ${reason}`, 'status');
+          roomSection.style.display = 'none';
+          messageInputContainer.style.display = 'none';
+          whisperControls.style.display = 'none'; // Hide whisper controls
+          currentRoom = null;
+          currentRoomStatus.textContent = 'Not in any room.';
+          typingIndicator.textContent = '';
+          userIdInput.disabled = false;
+          connectButton.textContent = 'Connect';
+          connectButton.onclick = connectButtonClickHandler; // Restore original handler
+        });
+
+        socket.on('joinedRoom', (room) => {
+          addMessage(`Successfully joined room: ${room}`, 'status');
+          currentRoom = room;
+          currentRoomStatus.textContent = `In room: ${currentRoom}`;
+          messageInputContainer.style.display = 'flex'; // Show message input
+          whisperControls.style.display = 'block'; // Show whisper controls
+          messageInput.focus();
+        });
+
+        socket.on('userJoinedRoom', (data) => {
+          addMessage(`User ${data.userId} joined room: ${data.room}`, 'status');
+        });
+
+        socket.on('userLeftRoom', (data) => {
+          addMessage(`User ${data.userId} left room: ${data.room}`, 'status');
+          if (data.room === currentRoom) {
+            typingIndicator.textContent = ''; // Clear typing if user left current room
+          }
+        });
+
+        socket.on('receiveMessage', (message) => {
+          addMessage(
+            `[${message.room || 'DM to ' + message.recipientUserId || 'Broadcast'}] ${message.senderUserId}: ${message.message}`,
+            'info',
+            message.isWhisper, // Pass isWhisper to addMessage
+          );
+          // If a message is received from someone who was typing, clear their typing indicator
+          if (
+            currentRoom &&
+            message.room === currentRoom &&
+            typingIndicator.textContent.includes(message.senderUserId)
+          ) {
+            typingIndicator.textContent = '';
+          }
+        });
+
+        socket.on('userOnline', (data) => {
+          addMessage(`User ${data.userId} is now online.`, 'status');
+        });
+
+        socket.on('userOffline', (data) => {
+          addMessage(`User ${data.userId} went offline.`, 'status');
+          if (
+            currentRoom &&
+            typingIndicator.textContent.includes(data.userId)
+          ) {
+            typingIndicator.textContent = ''; // Clear typing if user went offline
+          }
+        });
+
+        socket.on('onlineUsers', (users) => {
+          addMessage(`Currently online users: ${users.join(', ')}`, 'status');
+        });
+
+        socket.on('typing', (data) => {
+          // data: { user: string, isTyping: boolean }
+          if (data.room && data.room === currentRoom) {
+            // Only show for current room
+            if (data.isTyping) {
+              typingIndicator.textContent = `User ${data.user} is typing...`;
+            } else {
+              typingIndicator.textContent = '';
+            }
+          } else if (!data.room && !currentRoom) {
+            // For direct messages if not in a room (more complex to target)
+            // For simplicity, this example focuses on room typing indicators.
+            // For DMs, you'd need to know who the current chat partner is.
+          }
+        });
+      });
+
+      const connectButtonClickHandler = connectButton.onclick; // Store original handler
+
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+        }
+      }
+
+      joinRoomButton.addEventListener('click', () => {
+        const roomName = roomNameInput.value.trim();
+        if (!roomName) {
+          addMessage('Please enter a room name.', 'error');
+          return;
+        }
+        if (socket && socket.connected) {
+          addMessage(`Attempting to join room: ${roomName}...`, 'status');
+          socket.emit('joinRoom', roomName);
+          // Clear previous room's typing indicator if any
+          typingIndicator.textContent = '';
+        } else {
+          addMessage('Not connected to the server.', 'error');
+        }
+      });
+
+      sendMessageButton.addEventListener('click', () => {
+        const messageText = messageInput.value.trim();
+        if (!messageText) return;
+
+        if (socket && socket.connected && currentRoom) {
+          socket.emit('sendMessage', {
+            // senderUserId is handled by the server
+            message: messageText,
+            room: currentRoom,
+            isWhisper: whisperModeCheckbox.checked, // Send whisper status
+          });
+          messageInput.value = '';
+          if (typingTimeout) clearTimeout(typingTimeout);
+          socket.emit('typing', { room: currentRoom, isTyping: false });
+        } else if (socket && socket.connected && !currentRoom) {
+          addMessage('Please join a room to send messages.', 'error');
+        } else {
+          addMessage('Not connected or not in a room.', 'error');
+        }
+      });
+
+      messageInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+          sendMessageButton.click();
+        }
+      });
+
+      messageInput.addEventListener('input', () => {
+        if (socket && socket.connected && currentRoom) {
+          if (!typingTimeout) {
+            // Send typing start immediately
+            socket.emit('typing', { room: currentRoom, isTyping: true });
+          } else {
+            clearTimeout(typingTimeout);
+          }
+          typingTimeout = setTimeout(() => {
+            socket.emit('typing', { room: currentRoom, isTyping: false });
+            typingTimeout = null;
+          }, 2000); // Consider user stopped typing after 2 seconds of inactivity
+        }
+      });
+    </script>
+  </body>
+</html>
