@@ -164,10 +164,8 @@
 
         if (isWhisper) {
           messageElement.classList.add('whisper');
-          // The CSS transition handles the initial delay and fade.
-          // This JS timeout is to remove the element after it has faded.
           setTimeout(() => {
-            messageElement.classList.add('faded'); // Start fade via CSS
+            messageElement.classList.add('faded');
             setTimeout(() => {
               if (messageElement.parentNode) {
                 messageElement.parentNode.removeChild(messageElement);
@@ -177,7 +175,7 @@
         }
 
         messagesDiv.appendChild(messageElement);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to bottom
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
       }
 
       connectButton.addEventListener('click', () => {
@@ -195,7 +193,6 @@
           return;
         }
 
-        // Replace with your NestJS server URL if different
         socket = io('http://localhost:3000', {
           query: {
             userId: userId,
@@ -214,7 +211,7 @@
           roomSection.style.display = 'block';
           userIdInput.disabled = true;
           connectButton.textContent = 'Disconnect';
-          connectButton.onclick = disconnect; // Change button action
+          connectButton.onclick = disconnect;
         });
 
         socket.on('connection_success', (data) => {
@@ -235,21 +232,21 @@
           addMessage(`Disconnected from server: ${reason}`, 'status');
           roomSection.style.display = 'none';
           messageInputContainer.style.display = 'none';
-          whisperControls.style.display = 'none'; // Hide whisper controls
+          whisperControls.style.display = 'none';
           currentRoom = null;
           currentRoomStatus.textContent = 'Not in any room.';
           typingIndicator.textContent = '';
           userIdInput.disabled = false;
           connectButton.textContent = 'Connect';
-          connectButton.onclick = connectButtonClickHandler; // Restore original handler
+          connectButton.onclick = connectButtonClickHandler;
         });
 
         socket.on('joinedRoom', (room) => {
           addMessage(`Successfully joined room: ${room}`, 'status');
           currentRoom = room;
           currentRoomStatus.textContent = `In room: ${currentRoom}`;
-          messageInputContainer.style.display = 'flex'; // Show message input
-          whisperControls.style.display = 'block'; // Show whisper controls
+          messageInputContainer.style.display = 'flex';
+          whisperControls.style.display = 'block';
           messageInput.focus();
         });
 
@@ -260,7 +257,7 @@
         socket.on('userLeftRoom', (data) => {
           addMessage(`User ${data.userId} left room: ${data.room}`, 'status');
           if (data.room === currentRoom) {
-            typingIndicator.textContent = ''; // Clear typing if user left current room
+            typingIndicator.textContent = '';
           }
         });
 
@@ -268,9 +265,8 @@
           addMessage(
             `[${message.room || 'DM to ' + message.recipientUserId || 'Broadcast'}] ${message.senderUserId}: ${message.message}`,
             'info',
-            message.isWhisper, // Pass isWhisper to addMessage
+            message.isWhisper,
           );
-          // If a message is received from someone who was typing, clear their typing indicator
           if (
             currentRoom &&
             message.room === currentRoom &&
@@ -290,7 +286,7 @@
             currentRoom &&
             typingIndicator.textContent.includes(data.userId)
           ) {
-            typingIndicator.textContent = ''; // Clear typing if user went offline
+            typingIndicator.textContent = '';
           }
         });
 
@@ -307,15 +303,11 @@
             } else {
               typingIndicator.textContent = '';
             }
-          } else if (!data.room && !currentRoom) {
-            // For direct messages if not in a room (more complex to target)
-            // For simplicity, this example focuses on room typing indicators.
-            // For DMs, you'd need to know who the current chat partner is.
           }
         });
       });
 
-      const connectButtonClickHandler = connectButton.onclick; // Store original handler
+      const connectButtonClickHandler = connectButton.onclick;
 
       function disconnect() {
         if (socket) {
@@ -332,7 +324,6 @@
         if (socket && socket.connected) {
           addMessage(`Attempting to join room: ${roomName}...`, 'status');
           socket.emit('joinRoom', roomName);
-          // Clear previous room's typing indicator if any
           typingIndicator.textContent = '';
         } else {
           addMessage('Not connected to the server.', 'error');
@@ -345,11 +336,9 @@
 
         if (socket && socket.connected && currentRoom) {
           socket.emit('sendMessage', {
-            // senderUserId is handled by the server
             message: messageText,
             room: currentRoom,
-            isWhisper: whisperModeCheckbox.checked, // Send whisper status
-          });
+            isWhisper: whisperModeCheckbox.checked,
           messageInput.value = '';
           if (typingTimeout) clearTimeout(typingTimeout);
           socket.emit('typing', { room: currentRoom, isTyping: false });
@@ -377,7 +366,7 @@
           typingTimeout = setTimeout(() => {
             socket.emit('typing', { room: currentRoom, isTyping: false });
             typingTimeout = null;
-          }, 2000); // Consider user stopped typing after 2 seconds of inactivity
+          }, 2000);
         }
       });
     </script>

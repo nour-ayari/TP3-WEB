@@ -131,15 +131,13 @@ export class MessagingGateway
         if (payload.recipientUserId) {
             const recipientSocketId = this.connectedUsers.get(payload.recipientUserId);
             if (recipientSocketId) {
-                // Payload for DMs (does not need room in the same way)
                 this.server.to(recipientSocketId).emit('typing', { user: userId, isTyping: payload.isTyping });
             }
         } else if (payload.room) {
-            // Payload for rooms must include the room for client-side filtering
             client.to(payload.room).emit('typing', {
                 user: userId,
                 isTyping: payload.isTyping,
-                room: payload.room // Ensure room is included in the broadcast
+                room: payload.room
             });
         }
     }
