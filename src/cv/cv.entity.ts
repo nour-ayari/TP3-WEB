@@ -3,6 +3,7 @@ import { User } from '../user/user.entity';
 
 @Entity()
 export class Cv {
+  
   @PrimaryGeneratedColumn()
   id: number;
 

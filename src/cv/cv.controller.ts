@@ -11,7 +11,7 @@ async create(@Body() dto, @Req() req) {
   if (!req.user || !req.user.id || !req.user.username) {
     throw new UnauthorizedException('User not authenticated');
   }
-
+console.log("controllerrrr",req.user)
   return await this.cvService.create(dto, req.user);
 }
 
