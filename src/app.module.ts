@@ -19,7 +19,7 @@ import { MessagingModule } from './Messaging/messaging.module';
     entities: [Cv, User, CvHistory],
     synchronize: true,
     username: 'root',
-    password: 'root',
+    password: '',
   }),
   EventEmitterModule.forRoot(),
     CvModule,
