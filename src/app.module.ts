@@ -11,6 +11,7 @@ import { User } from './user/user.entity';
 import { UserMiddleware } from 'common/middleware/user.middleware';
 import { CvHistory } from './cv-history/entities/cv-history.entity/cv-history.entity';
 import { MessagingModule } from './Messaging/messaging.module';
+import { SseModule } from './sse/sse.module';
 
 @Module({
   imports: [TypeOrmModule.forRoot({
@@ -19,13 +20,14 @@ import { MessagingModule } from './Messaging/messaging.module';
     entities: [Cv, User, CvHistory],
     synchronize: true,
     username: 'root',
-    password: '',
+    password: 'root',
   }),
   EventEmitterModule.forRoot(),
     CvModule,
     UserModule,
     CvHistoryModule,
     MessagingModule,
+    SseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
